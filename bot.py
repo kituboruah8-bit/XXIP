@@ -60,6 +60,9 @@ async def on_ready():
     print(f'Bot is ready! Using slash commands (/) instead of prefix commands.')
     print(f"Commands in tree: {len(bot.tree._get_all_commands())}")
     
+    # Start the voice channel keep-alive task
+    keep_bot_in_vc.start()
+    
     # Sync with a small delay to ensure bot is fully ready
     import asyncio
     await asyncio.sleep(1)
@@ -80,6 +83,48 @@ async def on_ready():
         print(f"❌ Error during sync: {e}")
         import traceback
         traceback.print_exc()
+
+@tasks.loop(seconds=30)
+async def keep_bot_in_vc():
+    """Background task to keep bot connected to voice channels"""
+    for guild_id, channel_id in list(voice_channels_to_keep.items()):
+        try:
+            # Find the guild and channel
+            guild = bot.get_guild(guild_id)
+            if not guild:
+                del voice_channels_to_keep[guild_id]
+                continue
+            
+            # Check if bot is already connected to the right channel
+            if guild.voice_client and guild.voice_client.channel.id == channel_id:
+                # Already connected to correct channel
+                continue
+            
+            # Bot is either not connected or in wrong channel - reconnect
+            channel = guild.get_channel(channel_id)
+            if not channel:
+                print(f"⚠️ Channel {channel_id} not found in {guild.name}")
+                del voice_channels_to_keep[guild_id]
+                continue
+            
+            # Disconnect from any current connection
+            if guild.voice_client:
+                try:
+                    await guild.voice_client.disconnect(force=True)
+                except:
+                    pass
+                import asyncio
+                await asyncio.sleep(1)
+            
+            # Try to reconnect
+            try:
+                await channel.connect()
+                print(f"🔄 [Keep-alive] Reconnected to {channel.name} in {guild.name}")
+            except Exception as e:
+                print(f"❌ [Keep-alive] Failed to reconnect to {channel.name}: {e}")
+        
+        except Exception as e:
+            print(f"❌ [Keep-alive] Error: {e}")
 
 @bot.event
 async def on_message(message):
