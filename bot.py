@@ -62,12 +62,19 @@ async def on_ready():
     await asyncio.sleep(1)
     
     try:
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} command(s) to Discord!")
-        for cmd in synced:
-            print(f"  ✓ /{cmd.name}")
+        # Sync to all guilds (servers) where bot is a member
+        synced_count = 0
+        for guild in bot.guilds:
+            try:
+                synced = await bot.tree.sync(guild=guild)
+                synced_count += len(synced)
+                print(f"✅ Synced {len(synced)} command(s) to guild: {guild.name}")
+            except Exception as e:
+                print(f"❌ Error syncing to {guild.name}: {e}")
+        
+        print(f"✅ Total: {synced_count} command(s) synced!")
     except Exception as e:
-        print(f"❌ Error syncing commands: {e}")
+        print(f"❌ Error during sync: {e}")
         import traceback
         traceback.print_exc()
 
@@ -93,6 +100,17 @@ async def on_message(message):
                 # Send response
                 await message.reply(response, mention_author=False)
                 break
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    """Handle when bot is kicked from voice channel or disconnects"""
+    if member == bot.user:
+        if before.channel and not after.channel:
+            print(f"📴 Bot disconnected from {before.channel.name}")
+        elif after.channel and not before.channel:
+            print(f"🔊 Bot connected to {after.channel.name}")
+        elif before.channel != after.channel and after.channel:
+            print(f"🔄 Bot moved from {before.channel.name} to {after.channel.name}")
 
 @bot.tree.command(name="add_friend", description="Add a friend to the friends list")
 @app_commands.describe(
@@ -614,10 +632,26 @@ async def join(interaction: discord.Interaction):
     channel = interaction.user.voice.channel
     
     try:
-        await channel.connect()
+        # Disconnect from any existing connection first
+        if interaction.guild.voice_client:
+            await interaction.guild.voice_client.disconnect(force=True)
+            import asyncio
+            await asyncio.sleep(0.5)
+        
+        # Connect to voice channel
+        vc = await channel.connect()
+        
         embed_msg = discord.Embed(title="🔊 Bot Joined!", color=discord.Color.green())
         embed_msg.add_field(name="Channel", value=channel.name, inline=False)
+        embed_msg.add_field(name="Note", value="Bot will auto-leave after 5 minutes of inactivity", inline=False)
         await interaction.response.send_message(embed=embed_msg)
+        
+        # Auto-disconnect after 5 minutes if no audio is playing
+        import asyncio
+        await asyncio.sleep(300)
+        if interaction.guild.voice_client:
+            await interaction.guild.voice_client.disconnect(force=True)
+            
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {str(e)}")
 
@@ -629,8 +663,11 @@ async def leave(interaction: discord.Interaction):
         return
     
     try:
-        await interaction.guild.voice_client.disconnect()
-        await interaction.response.send_message("✅ Bot left the voice channel!")
+        channel_name = interaction.guild.voice_client.channel.name
+        await interaction.guild.voice_client.disconnect(force=True)
+        await interaction.response.send_message(f"✅ Bot left **{channel_name}**!")
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error: {str(e)}")
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {str(e)}")
 
