@@ -632,25 +632,27 @@ async def join(interaction: discord.Interaction):
     channel = interaction.user.voice.channel
     
     try:
-        # Disconnect from any existing connection first
+        # Check if already in same channel
         if interaction.guild.voice_client:
-            await interaction.guild.voice_client.disconnect(force=True)
+            if interaction.guild.voice_client.channel == channel:
+                await interaction.response.send_message(f"✅ Bot is already in **{channel.name}**!")
+                return
+            # Disconnect from other channel
+            try:
+                await interaction.guild.voice_client.disconnect(force=True)
+            except:
+                pass
+            
             import asyncio
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
         
         # Connect to voice channel
         vc = await channel.connect()
         
         embed_msg = discord.Embed(title="🔊 Bot Joined!", color=discord.Color.green())
         embed_msg.add_field(name="Channel", value=channel.name, inline=False)
-        embed_msg.add_field(name="Note", value="Bot will auto-leave after 5 minutes of inactivity", inline=False)
+        embed_msg.add_field(name="Status", value="Bot will stay in VC until /leave is used", inline=False)
         await interaction.response.send_message(embed=embed_msg)
-        
-        # Auto-disconnect after 5 minutes if no audio is playing
-        import asyncio
-        await asyncio.sleep(300)
-        if interaction.guild.voice_client:
-            await interaction.guild.voice_client.disconnect(force=True)
             
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {str(e)}")
@@ -667,6 +669,7 @@ async def leave(interaction: discord.Interaction):
         await interaction.guild.voice_client.disconnect(force=True)
         await interaction.response.send_message(f"✅ Bot left **{channel_name}**!")
     except Exception as e:
+        print(f"Error leaving VC: {e}")
         await interaction.response.send_message(f"❌ Error: {str(e)}")
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {str(e)}")
