@@ -18,6 +18,7 @@ intents.dm_messages = True
 intents.guilds = True
 intents.guild_messages = True
 intents.members = True
+intents.voice_states = True
 
 bot = commands.Bot(command_prefix="", intents=intents)
 
@@ -604,11 +605,44 @@ async def help_bot(interaction: discord.Interaction):
     embed.add_field(name="📨 Channel Commands", value="`/list_channels` `/send_to_channel` `/send_embed_to_channel`", inline=False)
     embed.add_field(name="🔑 Keyword Triggers", value="`/set_keyword` `/remove_keyword` `/list_keywords`", inline=False)
     embed.add_field(name="📢 Other Commands", value="`/announce` `/poll` `/info` `/avatar` `/broadcast` `/clear`", inline=False)
+    embed.add_field(name="� Voice Commands", value="`/join` `/leave`", inline=False)
     embed.add_field(name="💡 Pro Tips", value="Use `/prank` and `/prank_embed` for the best pranks! Keyword triggers work in any message!", inline=False)
     
     embed.set_footer(text="All commands are slash commands (/) now!")
     
     await interaction.response.send_message(embed=embed)
+
+# ============= VOICE CHANNEL COMMANDS =============
+
+@bot.tree.command(name="join", description="Join your voice channel")
+async def join(interaction: discord.Interaction):
+    """Join the voice channel of the user who ran the command"""
+    if not interaction.user.voice:
+        await interaction.response.send_message("❌ You must be in a voice channel!")
+        return
+    
+    channel = interaction.user.voice.channel
+    
+    try:
+        await channel.connect()
+        embed = discord.Embed(title="🔊 Bot Joined!", color=discord.Color.green())
+        embed.add_field(name="Channel", value=channel.name, inline=False)
+        await interaction.response.send_message(embed=embed)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error: {str(e)}")
+
+@bot.tree.command(name="leave", description="Leave the voice channel")
+async def leave(interaction: discord.Interaction):
+    """Leave the current voice channel"""
+    if not interaction.guild.voice_client:
+        await interaction.response.send_message("❌ Bot is not in a voice channel!")
+        return
+    
+    try:
+        await interaction.guild.voice_client.disconnect()
+        await interaction.response.send_message("✅ Bot left the voice channel!")
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error: {str(e)}")
 
 # Run the bot
 if __name__ == "__main__":
