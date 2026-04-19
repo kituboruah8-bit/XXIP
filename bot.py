@@ -602,39 +602,6 @@ async def broadcast(ctx, *, message: str):
     embed.add_field(name="❌ Failed", value=f"{failed} channels", inline=True)
     await ctx.send(embed=embed)
 
-@bot.command(name='broadcast')
-async def broadcast(ctx, *, message: str):
-    """Send a message to ALL channels in current server (admin only)
-    Usage: !broadcast Important announcement!
-    """
-    if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ You need administrator permission!")
-        return
-    
-    if not ctx.guild:
-        await ctx.send("❌ This command only works in servers!")
-        return
-    
-    channels = ctx.guild.text_channels
-    success = 0
-    failed = 0
-    
-    for channel in channels:
-        try:
-            perms = channel.permissions_for(ctx.guild.me)
-            if perms.send_messages:
-                await channel.send(message)
-                success += 1
-            else:
-                failed += 1
-        except:
-            failed += 1
-    
-    embed = discord.Embed(title="📢 Broadcast Complete", color=discord.Color.green())
-    embed.add_field(name="✅ Sent To", value=f"{success} channels", inline=True)
-    embed.add_field(name="❌ Failed", value=f"{failed} channels", inline=True)
-    await ctx.send(embed=embed)
-
 @bot.command(name='help_bot')
 async def help_bot(ctx):
     """Show all available commands"""
