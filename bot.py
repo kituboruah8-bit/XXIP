@@ -55,11 +55,21 @@ async def on_ready():
     """Called when bot connects to Discord"""
     print(f'{bot.user} has connected to Discord!')
     print(f'Bot is ready! Using slash commands (/) instead of prefix commands.')
+    print(f"Commands in tree: {len(bot.tree._get_all_commands())}")
+    
+    # Sync with a small delay to ensure bot is fully ready
+    import asyncio
+    await asyncio.sleep(1)
+    
     try:
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s)")
+        print(f"✅ Synced {len(synced)} command(s) to Discord!")
+        for cmd in synced:
+            print(f"  ✓ /{cmd.name}")
     except Exception as e:
-        print(f"Error syncing commands: {e}")
+        print(f"❌ Error syncing commands: {e}")
+        import traceback
+        traceback.print_exc()
 
 @bot.event
 async def on_message(message):
