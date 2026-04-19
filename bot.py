@@ -178,11 +178,17 @@ async def on_voice_state_update(member, before, after):
     name="Friend's name (for reference)",
     user_id="Their Discord user ID"
 )
-async def add_friend(interaction: discord.Interaction, name: str, user_id: int):
+async def add_friend(interaction: discord.Interaction, name: str, user_id: str):
+    try:
+        user_id_int = int(user_id)
+    except ValueError:
+        await interaction.response.send_message(f'❌ Error: {user_id} is not a valid integer!')
+        return
+    
     config = load_friends_config()
-    config['friends'][name] = user_id
+    config['friends'][name] = user_id_int
     save_friends_config(config)
-    await interaction.response.send_message(f'✅ Added {name} (ID: {user_id}) to friends list!')
+    await interaction.response.send_message(f'✅ Added {name} (ID: {user_id_int}) to friends list!')
 
 @bot.tree.command(name="remove_friend", description="Remove a friend from the friends list")
 @app_commands.describe(name="Friend's name to remove")
