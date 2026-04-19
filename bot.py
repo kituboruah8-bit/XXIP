@@ -20,7 +20,7 @@ intents.guild_messages = True
 intents.members = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix="", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Track voice channels bot should stay in
 voice_channels_to_keep = {}  # {guild_id: channel_id}
@@ -173,56 +173,47 @@ async def on_voice_state_update(member, before, after):
         elif before.channel != after.channel and after.channel:
             print(f"🔄 Bot moved from {before.channel.name} to {after.channel.name}")
 
-@bot.tree.command(name="add_friend", description="Add a friend to the friends list")
-@app_commands.describe(
-    name="Friend's name (for reference)",
-    user_id="Their Discord user ID"
-)
-async def add_friend(interaction: discord.Interaction, name: str, user_id: str):
+@bot.command(name="add_friend")
+async def add_friend(ctx: commands.Context, name: str, user_id: str):
     try:
         user_id_int = int(user_id)
     except ValueError:
-        await interaction.response.send_message(f'❌ Error: {user_id} is not a valid integer!')
+        await ctx.send(f'❌ Error: {user_id} is not a valid integer!')
         return
     
     config = load_friends_config()
     config['friends'][name] = user_id_int
     save_friends_config(config)
-    await interaction.response.send_message(f'✅ Added {name} (ID: {user_id_int}) to friends list!')
+    await ctx.send(f'✅ Added {name} (ID: {user_id_int}) to friends list!')
 
-@bot.tree.command(name="remove_friend", description="Remove a friend from the friends list")
-@app_commands.describe(name="Friend's name to remove")
-async def remove_friend(interaction: discord.Interaction, name: str):
+@bot.command(name="remove_friend")
+async def remove_friend(ctx: commands.Context, name: str):
     config = load_friends_config()
     if name in config['friends']:
         del config['friends'][name]
         save_friends_config(config)
-        await interaction.response.send_message(f'✅ Removed {name} from friends list!')
+        await ctx.send(f'✅ Removed {name} from friends list!')
     else:
-        await interaction.response.send_message(f'❌ Friend "{name}" not found!')
+        await ctx.send(f'❌ Friend "{name}" not found!')
 
-@bot.tree.command(name="list_friends", description="List all friends")
-async def list_friends(interaction: discord.Interaction):
+@bot.command(name="list_friends")
+async def list_friends(ctx: commands.Context):
     config = load_friends_config()
     if not config['friends']:
-        await interaction.response.send_message('No friends added yet. Use /add_friend to add some!')
+        await ctx.send('No friends added yet. Use !add_friend to add some!')
         return
     
     embed = discord.Embed(title="📋 Your Friends", color=discord.Color.blue())
     for name, user_id in config['friends'].items():
         embed.add_field(name=name, value=f"ID: {user_id}", inline=False)
-    await interaction.response.send_message(embed=embed)
+    await ctx.send(embed=embed)
 
-@bot.tree.command(name="dm_friend", description="Send a DM to a specific friend")
-@app_commands.describe(
-    friend_name="Friend's name (must be added first)",
-    message="Message to send"
-)
-async def dm_friend(interaction: discord.Interaction, friend_name: str, message: str):
+@bot.command(name="dm_friend")
+async def dm_friend(ctx: commands.Context, friend_name: str, *, message: str):
     config = load_friends_config()
     
     if friend_name not in config['friends']:
-        await interaction.response.send_message(f'❌ Friend "{friend_name}" not found!\nUse `/list_friends` to see available friends')
+        await ctx.send(f'❌ Friend "{friend_name}" not found!\nUse `!list_friends` to see available friends')
         return
     
     user_id = config['friends'][friend_name]
@@ -230,13 +221,13 @@ async def dm_friend(interaction: discord.Interaction, friend_name: str, message:
         user = await bot.fetch_user(user_id)
         await user.send(message)
         embed = discord.Embed(title="✅ DM Sent!", description=f"Message sent to **{friend_name}**", color=discord.Color.green())
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
     except discord.NotFound:
-        await interaction.response.send_message(f'❌ Error: User with ID {user_id} not found. They may have deleted their account.')
+        await ctx.send(f'❌ Error: User with ID {user_id} not found. They may have deleted their account.')
     except discord.Forbidden:
-        await interaction.response.send_message(f'🔒 **DMs Disabled**: {friend_name} has DMs turned OFF.\n\nAsk them to enable DMs in Settings → Privacy & Safety → Allow Direct Messages')
+        await ctx.send(f'🔒 **DMs Disabled**: {friend_name} has DMs turned OFF.\n\nAsk them to enable DMs in Settings → Privacy & Safety → Allow Direct Messages')
     except Exception as e:
-        await interaction.response.send_message(f'❌ Error: {str(e)}')
+        await ctx.send(f'❌ Error: {str(e)}')
 
 @bot.tree.command(name="dm_all", description="Send a DM to all friends")
 @app_commands.describe(message="Message to send to all friends")
