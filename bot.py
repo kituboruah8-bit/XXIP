@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 import json
 import os
@@ -21,6 +21,9 @@ intents.members = True
 intents.voice_states = True
 
 bot = commands.Bot(command_prefix="", intents=intents)
+
+# Track voice channels bot should stay in
+voice_channels_to_keep = {}  # {guild_id: channel_id}
 
 # Load friends configuration
 def load_friends_config():
@@ -107,6 +110,19 @@ async def on_voice_state_update(member, before, after):
     if member == bot.user:
         if before.channel and not after.channel:
             print(f"📴 Bot disconnected from {before.channel.name}")
+            # Auto-rejoin if we should stay in this channel
+            guild_id = member.guild.id
+            if guild_id in voice_channels_to_keep:
+                print(f"🔄 Auto-rejoining {before.channel.name}...")
+                import asyncio
+                await asyncio.sleep(2)
+                try:
+                    channel = member.guild.get_channel(voice_channels_to_keep[guild_id])
+                    if channel:
+                        await channel.connect()
+                        print(f"✅ Auto-rejoined {channel.name}")
+                except Exception as e:
+                    print(f"❌ Failed to auto-rejoin: {e}")
         elif after.channel and not before.channel:
             print(f"🔊 Bot connected to {after.channel.name}")
         elif before.channel != after.channel and after.channel:
@@ -649,9 +665,12 @@ async def join(interaction: discord.Interaction):
         # Connect to voice channel
         vc = await channel.connect()
         
+        # Track this channel so bot auto-rejoins if kicked
+        voice_channels_to_keep[interaction.guild.id] = channel.id
+        
         embed_msg = discord.Embed(title="🔊 Bot Joined!", color=discord.Color.green())
         embed_msg.add_field(name="Channel", value=channel.name, inline=False)
-        embed_msg.add_field(name="Status", value="Bot will stay in VC until /leave is used", inline=False)
+        embed_msg.add_field(name="Status", value="Bot will stay in VC and auto-rejoin if disconnected!", inline=False)
         await interaction.response.send_message(embed=embed_msg)
             
     except Exception as e:
@@ -666,12 +685,14 @@ async def leave(interaction: discord.Interaction):
     
     try:
         channel_name = interaction.guild.voice_client.channel.name
+        # Stop auto-rejoining
+        if interaction.guild.id in voice_channels_to_keep:
+            del voice_channels_to_keep[interaction.guild.id]
+        
         await interaction.guild.voice_client.disconnect(force=True)
         await interaction.response.send_message(f"✅ Bot left **{channel_name}**!")
     except Exception as e:
         print(f"Error leaving VC: {e}")
-        await interaction.response.send_message(f"❌ Error: {str(e)}")
-    except Exception as e:
         await interaction.response.send_message(f"❌ Error: {str(e)}")
 
 @bot.tree.command(name="help", description="Show all available commands")
