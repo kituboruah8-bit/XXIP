@@ -1,0 +1,17 @@
+{
+  "friends": {
+    "friend1": 123456789,
+    "friend2": 987654321
+  },
+  "messages": {
+    "default": "Hey! Join us for something fun!"
+  },
+  "keywords": {
+    "hello": "Hey there! 👋",
+    "help": "Need help? Contact a mod!"
+  },
+  "prank_config": {
+    "friend_server_channel_id": 0,
+    "friend_server_name": ""
+  }
+}
